@@ -284,22 +284,23 @@ int main(int argc, char *argv[])
         scanf("%c", &method);
     }
     else
-        method = 'b';
+        method = 'A';
 
     // Shared variables
     int n, n_ode;
     int t_app = 2 / delta_t;
 
     // Open the file to write for complete gif
-    FILE *fp_all, *fp_last;
+    // FILE *fp_all = NULL;
     // fp_all = fopen("omp-mono-all.txt", "w");
-    fp_all = fopen("mono-spiral.txt", "w");
-    fp_last = fopen("2nd-spiral-0.05.txt", "w");
-    int count = 0;
+    // fp_all = fopen("mono-spiral.txt", "w");
+    FILE *fp_last = NULL;
+    fp_last = fopen("spiral-exp-0.01.txt", "w");
+    //int count = 0;
 
     // Open the file to write for time
-    /* FILE *fp = NULL;
-    fp = fopen("times.txt", "a"); */
+    FILE *fp = NULL;
+    fp = fopen("times.txt", "a");
 
     // Start timer
     double start, finish, elapsed;
@@ -319,7 +320,7 @@ int main(int argc, char *argv[])
             u_o, u_u, theta_v, theta_w, theta_vminus, theta_o, tau_v1minus, tau_v2minus, \
             tau_vplus, tau_w1minus, tau_w2minus, k_wminus, u_wminus, tau_wplus, tau_fi, tau_o1, tau_o2, tau_so1, tau_so2, k_so, \
             u_so, tau_s1, tau_s2, k_s, u_s, tau_si, tau_winf, w_infstar, \
-            delta_t, delta_x, delta_y)
+            delta_t)
 
             for (i = 1; i < N_x - 1; i++)
             {
@@ -328,10 +329,13 @@ int main(int argc, char *argv[])
                     // Calculate reaction functions (ODE)
 
                     // Stimulus
-                    if (n >= 0 && n <= t_app && j > 0 && j < 10)
+                    /* if (n >= 0 && n <= t_app && j > 0 && j < 10)
                         I_app = 1;
                     else
-                        I_app = 0;
+                        I_app = 0; */
+                    
+                    // Spiral stimulus
+                    I_app = 0;
 
                     tau_vminus = (1 - H(U_old[i][j], theta_vminus)) * tau_v1minus + H(U_old[i][j], theta_vminus) * tau_v2minus;
                     tau_wminus = tau_w1minus + (tau_w2minus - tau_w1minus) * (1 + tanh(k_wminus * (U_old[i][j] - u_wminus))) / 2;
@@ -432,7 +436,7 @@ int main(int argc, char *argv[])
             }
 
             // Write to file
-            /* if (n % 10 == 0)
+            /* if (n % 40 == 0)
             {
                 for (int i = 0; i < N_x; i++)
                 {
@@ -441,24 +445,11 @@ int main(int argc, char *argv[])
                         fprintf(fp_all, "%lf\n", U[i][j]);
                     }
                 }
-                count++;
             } */
-
-            // Write to file
-            // Error analysis
-            /* if (n * delta_t == 42)
-            {
-                for (int i = 0; i < N_x; i++)
-                {
-                    for (int j = 0; j < N_y; j++)
-                    {
-                        fprintf(fp, "%lf\n", U[i][j]);
-                    }
-                    
-                }
-            } */
+            
         }
     }
+    
     else if (method == 'a' || method == 'A')
     {
         // ADI Method (1st order)
@@ -475,7 +466,7 @@ int main(int argc, char *argv[])
             u_o, u_u, theta_v, theta_w, theta_vminus, theta_o, tau_v1minus, tau_v2minus, \
             tau_vplus, tau_w1minus, tau_w2minus, k_wminus, u_wminus, tau_wplus, tau_fi, tau_o1, tau_o2, tau_so1, tau_so2, k_so, \
             u_so, tau_s1, tau_s2, k_s, u_s, tau_si, tau_winf, w_infstar, \
-            delta_t_ode, num_threads, t_app)
+            delta_t_ode, t_app)
             for (i = 1; i < N_x - 1; i++)
             {
                 for (j = 1; j < N_y - 1; j++)
@@ -616,7 +607,7 @@ int main(int argc, char *argv[])
             } */
             
             // Write potential to file
-            if (n % 10 == 0)
+            /* if (n % 10 == 0)
             {
                 for (int i = 0; i < N_x; i++)
                 {
@@ -626,7 +617,7 @@ int main(int argc, char *argv[])
                     }
                 }
                 count++;
-            }
+            } */
 
         }
     }
@@ -803,7 +794,7 @@ int main(int argc, char *argv[])
             } */
             
             // Write potential to file
-            if (n % 100 == 0)
+            /* if (n % 100 == 0)
             {
                 for (int i = 0; i < N_x; i++)
                 {
@@ -813,7 +804,7 @@ int main(int argc, char *argv[])
                     }
                 }
                 count++;
-            }
+            } */
         }
     }
 
@@ -821,8 +812,8 @@ int main(int argc, char *argv[])
     finish = omp_get_wtime();
     elapsed = finish - start;
 
-    /* fprintf(fp, "\nADI %.2f:\n", delta_t);
-    fprintf(fp, "%e\n", elapsed); */
+    /* fprintf(fp, "%e", elapsed);
+    fprintf(fp, " - %c %.2f - %d threads\n\n", method, delta_t, num_threads); */
 
     printf("\nElapsed time = %e seconds\n", elapsed);
     //printf("File complete ready with time dimension c = %d\n", count);
@@ -837,7 +828,7 @@ int main(int argc, char *argv[])
     }
 
     // Close files
-    fclose(fp_all);
+    fclose(fp);
     fclose(fp_last);
 
     free(U);
