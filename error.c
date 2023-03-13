@@ -4,6 +4,20 @@
 #include <math.h>
 #include <stdbool.h>
 
+
+void print_errors(FILE *fp, double sum, double sum_abs, double norm_01)
+{
+    double rmse = sqrt(sum / (500*500));    // Root Mean Square Error
+    double ed = sqrt(sum);    // Euclidean distance
+
+    fprintf(fp, "Euclidean distance = %lf\n", ed);
+    fprintf(fp, "RMSE = %lf\n", rmse);
+    fprintf(fp, "Mean absolute error = %lf\n", sum_abs / (500*500));
+    fprintf(fp, "ED / Norm_ref = %lf\n", (ed / norm_01));
+    fprintf(fp, "Relative %% = %lf\n", (ed / norm_01) * 100);
+    fprintf(fp, "\n\n");
+}
+
 int main()
 {
     FILE *fp;
@@ -37,8 +51,8 @@ int main()
         sum_norm_01 += pow(num_1, 2);
     }
 
-    double rmse = sqrt(sum / (500*500));    // Root Mean Square Error
     double norm_01 = sqrt(sum_norm_01);    // Normalization
+    double rmse = sqrt(sum / (500*500));    // Root Mean Square Error
     double ed = sqrt(sum);    // Euclidean distance
 
     fprintf(fp, "Euclidean distance = %lf\n", ed);
@@ -76,15 +90,7 @@ int main()
         sum_abs += fabs(num_2 - num_1);
     }
 
-    rmse = sqrt(sum / (500*500));    // Root Mean Square Error
-    ed = sqrt(sum);    // Euclidean distance
-
-    fprintf(fp, "Euclidean distance = %lf\n", ed);
-    fprintf(fp, "RMSE = %lf\n", rmse);
-    fprintf(fp, "Mean absolute error = %lf\n", sum_abs / (500*500));
-    fprintf(fp, "ED / Norm_ref = %lf\n", (ed / norm_01));
-    fprintf(fp, "Relative %% = %lf\n", (ed / norm_01) * 100);
-    fprintf(fp, "\n\n");
+    print_errors(fp, sum, sum_abs, norm_01);
     
     fclose(fp_2);
     fclose(fp_1);
@@ -114,15 +120,7 @@ int main()
         sum_abs += fabs(num_3 - num_1);
     }
 
-    rmse = sqrt(sum / (500*500));    // Root Mean Square Error
-    ed = sqrt(sum);    // Euclidean distance
-
-    fprintf(fp, "Euclidean distance = %lf\n", ed);
-    fprintf(fp, "RMSE = %lf\n", rmse);
-    fprintf(fp, "Mean absolute error = %lf\n", sum_abs / (500*500));
-    fprintf(fp, "ED / Norm_ref = %lf\n", (ed / norm_01));
-    fprintf(fp, "Relative %% = %lf\n", (ed / norm_01) * 100);
-    fprintf(fp, "\n\n");
+    print_errors(fp, sum, sum_abs, norm_01);
     
     fclose(fp_3);
     fclose(fp_1);
@@ -152,15 +150,7 @@ int main()
         sum_abs += fabs(num_4 - num_1);
     }
 
-    rmse = sqrt(sum / (500*500));    // Root Mean Square Error
-    ed = sqrt(sum);    // Euclidean distance
-
-    fprintf(fp, "Euclidean distance = %lf\n", ed);
-    fprintf(fp, "RMSE = %lf\n", rmse);
-    fprintf(fp, "Mean absolute error = %lf\n", sum_abs / (500*500));
-    fprintf(fp, "ED / Norm_ref = %lf\n", (ed / norm_01));
-    fprintf(fp, "Relative %% = %lf\n", (ed / norm_01) * 100);
-    fprintf(fp, "\n\n");
+    print_errors(fp, sum, sum_abs, norm_01);
     
     fclose(fp_4);
     fclose(fp_1);
@@ -190,15 +180,7 @@ int main()
         sum_abs += fabs(num_5 - num_1);
     }
 
-    rmse = sqrt(sum / (500*500));    // Root Mean Square Error
-    ed = sqrt(sum);    // Euclidean distance
-
-    fprintf(fp, "Euclidean distance = %lf\n", ed);
-    fprintf(fp, "RMSE = %lf\n", rmse);
-    fprintf(fp, "Mean absolute error = %lf\n", sum_abs / (500*500));
-    fprintf(fp, "ED / Norm_ref = %lf\n", (ed / norm_01));
-    fprintf(fp, "Relative %% = %lf\n", (ed / norm_01) * 100);
-    fprintf(fp, "\n\n");
+    print_errors(fp, sum, sum_abs, norm_01);
     
     fclose(fp_5);
     fclose(fp_1);
@@ -228,15 +210,7 @@ int main()
         sum_abs += fabs(num_10 - num_1);
     }
 
-    rmse = sqrt(sum / (500*500));    // Root Mean Square Error
-    ed = sqrt(sum);    // Euclidean distance
-
-    fprintf(fp, "Euclidean distance = %lf\n", ed);
-    fprintf(fp, "RMSE = %lf\n", rmse);
-    fprintf(fp, "Mean absolute error = %lf\n", sum_abs / (500*500));
-    fprintf(fp, "ED / Norm_ref = %lf\n", (ed / norm_01));
-    fprintf(fp, "Relative %% = %lf\n", (ed / norm_01) * 100);
-    fprintf(fp, "\n\n");
+    print_errors(fp, sum, sum_abs, norm_01);
     
     fclose(fp_10);
     fclose(fp_1);
@@ -266,19 +240,45 @@ int main()
         sum_abs += fabs(num_20 - num_1);
     }
 
-    rmse = sqrt(sum / (500*500));    // Root Mean Square Error
-    ed = sqrt(sum);    // Euclidean distance
-
-    fprintf(fp, "Euclidean distance = %lf\n", ed);
-    fprintf(fp, "RMSE = %lf\n", rmse);
-    fprintf(fp, "Mean absolute error = %lf\n", sum_abs / (500*500));
-    fprintf(fp, "ED / Norm_ref = %lf\n", (ed / norm_01));
-    fprintf(fp, "Relative %% = %lf\n", (ed / norm_01) * 100);
-    fprintf(fp, "\n\n");
+    print_errors(fp, sum, sum_abs, norm_01);
     
     fclose(fp_20);
     fclose(fp_1);
 
+
+    // Compare EXP with dt = 0.01 and EXP dt = 0.005
+    fp_1 = fopen("spiral-exp-0.01.txt", "r");
+    FILE *fp_05;
+    fp_05 = fopen("spiral-exp-0.005.txt", "r");
+
+    fprintf(fp, "Error (EXP with dt = 0.01 and EXP dt = 0.005):\n");
+
+    sum = 0;
+    sum_abs = 0;
+
+    for(int i = 0; i < 500*500; i ++)
+    {
+        char line_1[10];
+        char line_05[10];
+        fgets(line_1, 10, fp_1);
+        fgets(line_05, 10, fp_05);
+        double num_1 = strtod(line_1, &ptr);
+        double num_05 = strtod(line_05, &ptr);
+
+        double p = pow(num_05 - num_1, 2); 
+        sum += p;
+        sum_abs += fabs(num_05 - num_1);
+    }
+
+    print_errors(fp, sum, sum_abs, norm_01);
+    
+    fclose(fp_05);
+    fclose(fp_1);
+
+    char str[10];
+    char s[] = "hello";
+    sprintf(str, "%f", sum);
+    printf("%s\n", strcat(s, str));
 
     fclose(fp);
     return 0;

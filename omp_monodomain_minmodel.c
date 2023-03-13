@@ -127,27 +127,32 @@ void thomas_algorithm_2(double *d, double *solution, unsigned long N, double alp
 
     // 1st: update auxiliary arrays
     c_[0] = c / b;
-    d_[0] = d[0] / b;
+    // d_[0] = d[0] / b;
+    d_[0] = d[1] / b;
 
     b = 1 + 2*alpha;
 
-    for (int i = 1; i <= N-2; i++)
+    /* for (int i = 1; i <= N-2; i++)
     {
         c_[i] = c / (b - a * c_[i-1]);
         d_[i] = (d[i] - a * d_[i-1]) / (b - a * c_[i-1]);
+    } */
+    for (int i = 1; i <= N-2; i++)
+    {
+        c_[i] = c / (b - a * c_[i-1]);
+        d_[i] = (d[i+1] - a * d_[i-1]) / (b - a * c_[i-1]);
     }
 
     b = 1 + alpha;
-    d_[N-1] = (d[N-1] - a * d_[N-2]) / (b - a * c_[N-2]);
+    // d_[N-1] = (d[N-1] - a * d_[N-2]) / (b - a * c_[N-2]);
+    d_[N-1] = (d[N] - a * d_[N-2]) / (b - a * c_[N-2]);
 
     // 2nd: update solution
     solution[N-1] = d_[N-1];
-    //d[N-2] = d_[N-3];
 
     for (int i = N-2; i >= 0; i--)
     {
         solution[i] = d_[i] - c_[i] * solution[i+1];
-        //d[i] = d_[i-1] - c_[i-1] * d[i+1];
     }
 
     // Free memory
@@ -200,7 +205,7 @@ int main(int argc, char *argv[])
     double **W = (double **)malloc(N_x * sizeof(double *));
     double **S = (double **)malloc(N_x * sizeof(double *));
     double **solution = (double **)malloc((N_x-2) * sizeof(double)); // for thomas algorithm
-    double **r = (double **)malloc((N_x-2) * sizeof(double *)); // for thomas algorithm
+    double **r = (double **)malloc((N_x) * sizeof(double *)); // for thomas algorithm
 
     for (int i = 0; i < N_x; i++)
     {
@@ -210,12 +215,13 @@ int main(int argc, char *argv[])
         V[i] = (double *)malloc(N_y * sizeof(double));
         W[i] = (double *)malloc(N_y * sizeof(double));
         S[i] = (double *)malloc(N_y * sizeof(double));
+        r[i] = (double *)malloc((N_y) * sizeof(double));
     }
 
     // Right-hand side
     for (int i = 0; i < N_x-2; i++)
     {
-        r[i] = (double *)malloc((N_y-2) * sizeof(double));
+        // r[i] = (double *)malloc((N_y-2) * sizeof(double));
         solution[i] = (double *)malloc((N_y-2) * sizeof(double));
     }
 
@@ -294,13 +300,15 @@ int main(int argc, char *argv[])
     // FILE *fp_all = NULL;
     // fp_all = fopen("omp-mono-all.txt", "w");
     // fp_all = fopen("mono-spiral.txt", "w");
-    FILE *fp_last = NULL;
-    fp_last = fopen("spiral-exp-0.01.txt", "w");
     //int count = 0;
+
+    /* FILE *fp_last = NULL;
+    fp_last = fopen("spiral-adi-0.05-test.txt", "w"); */
+    
 
     // Open the file to write for time
     FILE *fp = NULL;
-    fp = fopen("times.txt", "a");
+    fp = fopen("exp-times.txt", "a");
 
     // Start timer
     double start, finish, elapsed;
@@ -520,7 +528,7 @@ int main(int argc, char *argv[])
             shared(r, U_old, N_x, N_y)
             for (i = 1; i < N_x-1; i++)
                 for (j = 1; j < N_y-1; j++)
-                    r[i-1][j-1] = U_old[j][i];
+                    r[i][j] = U_old[j][i];
 
             // Solve tridiagonal matrix (Linear system) for x-axis
             # pragma omp parallel for num_threads(num_threads) default(none) \
@@ -529,7 +537,7 @@ int main(int argc, char *argv[])
             for (i = 1; i < N_x-1; i++)
             {
                 // Solve tridiagonal matrix
-                thomas_algorithm_2(r[i-1], solution[i-1], N_y-2, alpha);
+                thomas_algorithm_2(r[i], solution[i-1], N_y-2, alpha);
                 
                 // Copy solution
                 for (j = 1; j < N_y-1; j++)
@@ -538,26 +546,14 @@ int main(int argc, char *argv[])
 
             // STEP 2: explicit in x, implicit in y on interval [t_n+(1/2), t_n+1]
 
-            # pragma omp parallel for collapse(2) num_threads(num_threads) default(none) \
-            private(i, j) \
-            shared(U_temp, N_x, N_y, r)
-            for (i = 1; i < N_x - 1; i++)
-            {
-                for (j = 1; j < N_y - 1; j++)
-                {
-                    // Potential (u)
-                    r[i-1][j-1] = U_temp[i][j];
-                }
-            }
-
             // Solve tridiagonal matrix (Linear system) for y-axis
             # pragma omp parallel for num_threads(num_threads) default(none) \
             private(i, j) \
-            shared(U, N_x, N_y, alpha, r, solution)
+            shared(U, N_x, N_y, alpha, U_temp, solution)
             for (i = 1; i < N_x-1; i++)
             {
                 // Solve tridiagonal matrix
-                thomas_algorithm_2(r[i-1], solution[i-1], N_y-2, alpha);
+                thomas_algorithm_2(U_temp[i], solution[i-1], N_y-2, alpha);
 
                 // Copy solution
                 for (j = 1; j < N_y-1; j++)
@@ -812,24 +808,24 @@ int main(int argc, char *argv[])
     finish = omp_get_wtime();
     elapsed = finish - start;
 
-    /* fprintf(fp, "%e", elapsed);
-    fprintf(fp, " - %c %.2f - %d threads\n\n", method, delta_t, num_threads); */
+    fprintf(fp, "%e", elapsed);
+    fprintf(fp, " - %c %.2f - %d threads\n\n", method, delta_t, num_threads);
 
     printf("\nElapsed time = %e seconds\n", elapsed);
     //printf("File complete ready with time dimension c = %d\n", count);
 
     // Write last u to file
-    for (int i = 0; i < N_x; i++)
+    /* for (int i = 0; i < N_x; i++)
     {
         for (int j = 0; j < N_y; j++)
         {
             fprintf(fp_last, "%lf\n", U[i][j]);
         }
-    }
+    } */
 
     // Close files
     fclose(fp);
-    fclose(fp_last);
+    // fclose(fp_last);
 
     free(U);
     free(U_old);
