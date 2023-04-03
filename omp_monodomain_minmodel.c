@@ -6,37 +6,42 @@
 #include <stdbool.h>
 #include <omp.h>
 
-// Parameters to reproduce epicardial cell
+// Parameters to reproduce TNNP
 double u_o = 0;
-double u_u = 1.55;
+double u_u = 1.58;
 double theta_v = 0.3;
-double theta_w = 0.13;
-double theta_vminus = 0.006;
+double theta_w = 0.015;
+double theta_vminus = 0.015;
 double theta_o = 0.006;
 double tau_v1minus = 60;
 double tau_v2minus = 1150;
 double tau_vplus = 1.4506;
-double tau_w1minus = 60;
-double tau_w2minus = 15;
+double tau_w1minus = 70;
+double tau_w2minus = 20;
 double k_wminus = 65;
 double u_wminus = 0.03;
-double tau_wplus = 200;
+double tau_wplus = 280;
 double tau_fi = 0.11;
-double tau_o1 = 400;
+double tau_o1 = 6;
 double tau_o2 = 6;
-double tau_so1 = 30.0181;
-double tau_so2 = 0.9957;
-double k_so = 2.0458;
+double tau_so1 = 43;
+double tau_so2 = 0.2;
+double k_so = 2;
 double u_so = 0.65;
 double tau_s1 = 2.7342;
-double tau_s2 = 16;
+double tau_s2 = 3;
 double k_s = 2.0994;
 double u_s = 0.9087;
-double tau_si = 1.8875;
+double tau_si = 2.8723;
 double tau_winf = 0.07;
 double w_infstar = 0.94;
 
-double D = 1.171; // +- 0.0221 cm^2/s  human ventricular diffusion coefficient
+// double D = 1.171; // cm^2/s  human ventricular diffusion coefficient (Bueno-Orovio)
+double D = 117100; // um^2/ms  human ventricular diffusion coefficient (Bueno-Orovio)
+// double D = 0.001171; // cm^2/ms  human ventricular diffusion coefficient
+// double D = 71428.57142; // um^2/ms
+// double D = 7142.857142; // um^2/ms
+// double D = 7143; // cm^2/ms  human ventricular diffusion coefficient (Sachetto) - 10^-4 / 0.14 (ms / um)
 
 // Standar Heaviside function
 double H(double x, double y)
@@ -127,16 +132,10 @@ void thomas_algorithm_2(double *d, double *solution, unsigned long N, double alp
 
     // 1st: update auxiliary arrays
     c_[0] = c / b;
-    // d_[0] = d[0] / b;
     d_[0] = d[1] / b;
 
     b = 1 + 2*alpha;
 
-    /* for (int i = 1; i <= N-2; i++)
-    {
-        c_[i] = c / (b - a * c_[i-1]);
-        d_[i] = (d[i] - a * d_[i-1]) / (b - a * c_[i-1]);
-    } */
     for (int i = 1; i <= N-2; i++)
     {
         c_[i] = c / (b - a * c_[i-1]);
@@ -144,15 +143,14 @@ void thomas_algorithm_2(double *d, double *solution, unsigned long N, double alp
     }
 
     b = 1 + alpha;
-    // d_[N-1] = (d[N-1] - a * d_[N-2]) / (b - a * c_[N-2]);
     d_[N-1] = (d[N] - a * d_[N-2]) / (b - a * c_[N-2]);
 
     // 2nd: update solution
-    solution[N-1] = d_[N-1];
+    solution[N] = d_[N-1];
 
     for (int i = N-2; i >= 0; i--)
     {
-        solution[i] = d_[i] - c_[i] * solution[i+1];
+        solution[i+1] = d_[i] - c_[i] * solution[i+2];
     }
 
     // Free memory
@@ -180,12 +178,12 @@ int main(int argc, char *argv[])
     printf("The number of threads is %d\n", num_threads);
 
     // Discretization
-    int T = 100;
-    int L = 500;
-    double delta_x = 1;
-    double delta_y = 1;
-    double delta_t = 0.05;
-    double delta_t_ode = 0.01;
+    int T = 400;    // ms
+    int L = 20000;  // um
+    double delta_x = 100;  // um
+    double delta_y = 100;  // um
+    double delta_t = 0.01;  // ms
+    double delta_t_ode = 0.01;  // ms
 
     int M = T / delta_t;                // number of points in time
     int M_ode = delta_t / delta_t_ode;  // number of points in time for ODE
@@ -204,7 +202,7 @@ int main(int argc, char *argv[])
     double **V = (double **)malloc(N_x * sizeof(double *));
     double **W = (double **)malloc(N_x * sizeof(double *));
     double **S = (double **)malloc(N_x * sizeof(double *));
-    double **solution = (double **)malloc((N_x-2) * sizeof(double)); // for thomas algorithm
+    double **solution = (double **)malloc((N_x) * sizeof(double)); // for thomas algorithm
     double **r = (double **)malloc((N_x) * sizeof(double *)); // for thomas algorithm
 
     for (int i = 0; i < N_x; i++)
@@ -215,14 +213,8 @@ int main(int argc, char *argv[])
         V[i] = (double *)malloc(N_y * sizeof(double));
         W[i] = (double *)malloc(N_y * sizeof(double));
         S[i] = (double *)malloc(N_y * sizeof(double));
-        r[i] = (double *)malloc((N_y) * sizeof(double));
-    }
-
-    // Right-hand side
-    for (int i = 0; i < N_x-2; i++)
-    {
-        // r[i] = (double *)malloc((N_y-2) * sizeof(double));
-        solution[i] = (double *)malloc((N_y-2) * sizeof(double));
+        r[i] = (double *)malloc(N_y * sizeof(double));
+        solution[i] = (double *)malloc(N_y * sizeof(double));
     }
 
     double J_fi, J_so, J_si, J = 0, I_app;
@@ -231,7 +223,7 @@ int main(int argc, char *argv[])
     double du_dt = 0, dv_dt = 0, ds_dt = 0, dw_dt = 0;
 
     // Initial conditions
-    /* for (int i = 0; i < N_x; i++)
+    for (int i = 0; i < N_x; i++)
     {
         for (int j = 0; j < N_y; j++)
         {
@@ -242,10 +234,10 @@ int main(int argc, char *argv[])
             W[i][j] = 1;
             S[i][j] = 0;
         }
-    } */
+    }
 
-    // Initial conditions for spiral
-    char *ptr;
+    // Initial conditions for spiral epi cells
+    /* char *ptr;
     char line[10];
     FILE *read_u, *read_v, *read_w, *read_s;
     read_u = fopen("spiral-u.txt", "r");
@@ -276,11 +268,44 @@ int main(int argc, char *argv[])
             S[i][j] = value;
         }
     }
+    */
 
+    // Initial conditions for spiral tnnp
+    /* char *ptr;
+    char line[10];
+    FILE *read_u, *read_v, *read_w, *read_s;
+    read_u = fopen("tnnp-spiral-u.txt", "r");
+    read_v = fopen("tnnp-spiral-v.txt", "r");
+    read_w = fopen("tnnp-spiral-w.txt", "r");
+    read_s = fopen("tnnp-spiral-s.txt", "r");
+
+    for (int i = 0; i < N_x; i++)
+    {
+        for (int j = 0; j < N_y; j++)
+        {
+            fgets(line, 10, read_u);
+            double value = strtod(line, &ptr);
+            U[i][j] = value;
+            U_old[i][j] = value;
+            U_temp[i][j] = value;
+
+            fgets(line, 10, read_v);
+            value = strtod(line, &ptr);
+            V[i][j] = value;
+
+            fgets(line, 10, read_w);
+            value = strtod(line, &ptr);
+            W[i][j] = value;
+
+            fgets(line, 10, read_s);
+            value = strtod(line, &ptr);
+            S[i][j] = value;
+        }
+    }
+    */
 
     // Subdiagonal, diagonal and superdiagonal of the tridiagonal matrix (Implicit Method)
     double alpha = (D * delta_t) / ( delta_x * delta_x);
-    double alpha_2 = (D * delta_t) / ( 2 * delta_x * delta_x);
 
     // Ask for input
     char method;
@@ -294,25 +319,34 @@ int main(int argc, char *argv[])
 
     // Shared variables
     int n, n_ode;
-    int t_app = 2 / delta_t;
+    int stim1 = 2 / delta_t;
+    int stim2 = 65 / delta_t;
 
     // Open the file to write for complete gif
-    // FILE *fp_all = NULL;
-    // fp_all = fopen("omp-mono-all.txt", "w");
-    // fp_all = fopen("mono-spiral.txt", "w");
-    //int count = 0;
+    FILE *fp_all = NULL;
+    fp_all = fopen("tnnp-adi-0.05.txt", "w");
+    int count = 0;
 
     /* FILE *fp_last = NULL;
-    fp_last = fopen("spiral-adi-0.05-test.txt", "w"); */
+    fp_last = fopen("spiral-exp-0.1.txt", "w"); */
     
 
     // Open the file to write for time
-    FILE *fp = NULL;
-    fp = fopen("exp-times.txt", "a");
+    /* FILE *fp = NULL;
+    fp = fopen("full-times.txt", "a"); */
+
+    FILE *tnnp_u, *tnnp_v, *tnnp_w, *tnnp_s;
+    tnnp_u = fopen("tnnp-spiral-u.txt", "w");
+    tnnp_v = fopen("tnnp-spiral-v.txt", "w");
+    tnnp_w = fopen("tnnp-spiral-w.txt", "w");
+    tnnp_s = fopen("tnnp-spiral-s.txt", "w");
 
     // Start timer
-    double start, finish, elapsed;
+    double start, finish, elapsed, elapsed_ode, elapsed_pde;
+    elapsed_ode = 0;
+    elapsed_pde = 0;
     start = omp_get_wtime();
+    bool tag = false;
 
     if (method == 'e' || method == 'E')
     {
@@ -321,15 +355,17 @@ int main(int argc, char *argv[])
         {
             int i, j;
 
+            // Measure ODE time
+            // start = omp_get_wtime();
+
             # pragma omp parallel for collapse(2) num_threads(num_threads) default(none) \
             private(i, j, I_app, tau_vminus, tau_wminus, tau_so, tau_s, tau_o, J_fi, J_so, J_si, J, v_inf, w_inf, du_dt, \
             dv_dt, ds_dt, dw_dt) \
-            shared(t_app, n, U, U_old, U_temp, V, W, S, N_x, N_y, M, \
+            shared(n, U, U_old, U_temp, V, W, S, N_x, N_y, M, \
             u_o, u_u, theta_v, theta_w, theta_vminus, theta_o, tau_v1minus, tau_v2minus, \
             tau_vplus, tau_w1minus, tau_w2minus, k_wminus, u_wminus, tau_wplus, tau_fi, tau_o1, tau_o2, tau_so1, tau_so2, k_so, \
             u_so, tau_s1, tau_s2, k_s, u_s, tau_si, tau_winf, w_infstar, \
-            delta_t)
-
+            delta_t, stim1, stim2, L)
             for (i = 1; i < N_x - 1; i++)
             {
                 for (j = 1; j < N_y - 1; j++)
@@ -337,13 +373,13 @@ int main(int argc, char *argv[])
                     // Calculate reaction functions (ODE)
 
                     // Stimulus
-                    /* if (n >= 0 && n <= t_app && j > 0 && j < 10)
+                    if ((n >= 0 && n <= stim1 && j > 0 && j < 10) || (n >= stim2 && n <= stim2 + 0.4/delta_t && j > 0 && j < L/2 && i > L/2 && i < L))
                         I_app = 1;
                     else
-                        I_app = 0; */
+                        I_app = 0;
                     
                     // Spiral stimulus
-                    I_app = 0;
+                    // I_app = 0;
 
                     tau_vminus = (1 - H(U_old[i][j], theta_vminus)) * tau_v1minus + H(U_old[i][j], theta_vminus) * tau_v2minus;
                     tau_wminus = tau_w1minus + (tau_w2minus - tau_w1minus) * (1 + tanh(k_wminus * (U_old[i][j] - u_wminus))) / 2;
@@ -372,11 +408,14 @@ int main(int argc, char *argv[])
                 }
             }
 
+            // Measure ODE time
+            // finish = omp_get_wtime();
+            // elapsed_ode += finish - start;
+
             // Boundary Conditions y-axis
             # pragma omp parallel for num_threads(num_threads) default(none) \
             private(i) \
             shared(U_temp, N_x, N_y)
-
             for (i = 0; i < N_x; i++)
             {
                 U_temp[i][0] = U_temp[i][1];
@@ -387,15 +426,17 @@ int main(int argc, char *argv[])
             # pragma omp parallel for num_threads(num_threads) default(none) \
             private(j) \
             shared(U_temp, N_x, N_y)
-
             for (j = 0; j < N_y; j++)
             {
                 U_temp[0][j] = U_temp[1][j];
                 U_temp[N_x - 1][j] = U_temp[N_x - 2][j];
             }
 
+            // Measure PDE time
+            // start = omp_get_wtime();
+
             // Diffusion (PDE) part
-            # pragma omp parallel for num_threads(num_threads) default(none) \
+            # pragma omp parallel for collapse(2) num_threads(num_threads) default(none) \
             private(i, j) \
             shared(U, U_temp, N_x, N_y, delta_t, D, delta_x, delta_y)
             for (i = 1; i < N_x - 1; i++)
@@ -408,11 +449,14 @@ int main(int argc, char *argv[])
                 }
             }
 
+            // Measure PDE time
+            // finish = omp_get_wtime();
+            // elapsed_pde += finish - start;
+
             // Boundary Conditions y-axis
             # pragma omp parallel for num_threads(num_threads) default(none) \
             private(i) \
             shared(U, N_x, N_y)
-
             for (i = 0; i < N_x; i++)
             {
                 U[i][0] = U[i][1];
@@ -423,7 +467,6 @@ int main(int argc, char *argv[])
             # pragma omp parallel for num_threads(num_threads) default(none) \
             private(j) \
             shared(U, N_x, N_y)
-
             for (j = 0; j < N_y; j++)
             {
                 U[0][j] = U[1][j];
@@ -431,10 +474,9 @@ int main(int argc, char *argv[])
             }
 
             // Update U_old
-            # pragma omp parallel for num_threads(num_threads) default(none) \
+            # pragma omp parallel for collapse(2) num_threads(num_threads) default(none) \
             private(i, j) \
             shared(U, U_old, N_x, N_y)
-
             for (i = 0; i < N_x; i++)
             {
                 for (j = 0; j < N_y; j++)
@@ -444,7 +486,7 @@ int main(int argc, char *argv[])
             }
 
             // Write to file
-            /* if (n % 40 == 0)
+            if (n % 100 == 0)
             {
                 for (int i = 0; i < N_x; i++)
                 {
@@ -453,8 +495,7 @@ int main(int argc, char *argv[])
                         fprintf(fp_all, "%lf\n", U[i][j]);
                     }
                 }
-            } */
-            
+            }    
         }
     }
     
@@ -465,8 +506,10 @@ int main(int argc, char *argv[])
         {
             int i, j;
 
-            // STEP 1: implicit in x, explicit in y on interval [t_n, t_n+(1/2)]
+            // Measure ODE time
+            // start = omp_get_wtime();
 
+            // STEP 1: implicit in x, explicit in y on interval [t_n, t_n+(1/2)]
             # pragma omp parallel for collapse(2) num_threads(num_threads) default(none) \
             private(i, j, I_app, tau_vminus, tau_wminus, tau_so, tau_s, tau_o, J_fi, J_so, J_si, J, v_inf, w_inf, du_dt, \
             dv_dt, ds_dt, dw_dt, n_ode) \
@@ -474,7 +517,7 @@ int main(int argc, char *argv[])
             u_o, u_u, theta_v, theta_w, theta_vminus, theta_o, tau_v1minus, tau_v2minus, \
             tau_vplus, tau_w1minus, tau_w2minus, k_wminus, u_wminus, tau_wplus, tau_fi, tau_o1, tau_o2, tau_so1, tau_so2, k_so, \
             u_so, tau_s1, tau_s2, k_s, u_s, tau_si, tau_winf, w_infstar, \
-            delta_t_ode, t_app)
+            delta_t_ode, r, stim1, stim2, L, delta_t)
             for (i = 1; i < N_x - 1; i++)
             {
                 for (j = 1; j < N_y - 1; j++)
@@ -483,13 +526,13 @@ int main(int argc, char *argv[])
                     for (n_ode = 0; n_ode < M_ode; n_ode++)
                     {
                         // Stimulus
-                        /* if ((n >= 0 && n <= t_app && j > 0 && j < 10) || (n >= 6500 && n <= 6540 && j > 0 && j < 250 && i > 250 && i < 500))
+                        if ((n >= 0 && n <= stim1 && j > 0 && j < 10) || (n >= 16500 && n <= 16700 && j > 0 && j < 100 && i > 100 && i < 200))
                             I_app = 1;
                         else
-                            I_app = 0; */
+                            I_app = 0;
                         
                         // For spiral 
-                        I_app = 0;
+                        // I_app = 0;
 
                         // Calculate J (I_ion) functions
                         tau_vminus = (1 - H(U_old[i][j], theta_vminus)) * tau_v1minus + H(U_old[i][j], theta_vminus) * tau_v2minus;
@@ -513,6 +556,7 @@ int main(int argc, char *argv[])
 
                         // Potential (u)
                         U_old[i][j] = U_old[i][j] + delta_t_ode * du_dt;
+                        r[j][i] = U_old[i][j];
 
                         // Update gating variables (v, w, s)
                         V[i][j] = V[i][j] + delta_t_ode * dv_dt;
@@ -522,13 +566,12 @@ int main(int argc, char *argv[])
                 }
             }
 
-            // Diffusion (y-axis)
-            # pragma omp parallel for num_threads(num_threads) default(none) \
-            private(i, j) \
-            shared(r, U_old, N_x, N_y)
-            for (i = 1; i < N_x-1; i++)
-                for (j = 1; j < N_y-1; j++)
-                    r[i][j] = U_old[j][i];
+            // Measure ODE time
+            // finish = omp_get_wtime();
+            // elapsed_ode += finish - start;
+
+            // Measure PDE time
+            // start = omp_get_wtime();
 
             // Solve tridiagonal matrix (Linear system) for x-axis
             # pragma omp parallel for num_threads(num_threads) default(none) \
@@ -537,11 +580,11 @@ int main(int argc, char *argv[])
             for (i = 1; i < N_x-1; i++)
             {
                 // Solve tridiagonal matrix
-                thomas_algorithm_2(r[i], solution[i-1], N_y-2, alpha);
+                thomas_algorithm_2(r[i], solution[i], N_y-2, alpha);
                 
-                // Copy solution
+                // Copy transverse solution
                 for (j = 1; j < N_y-1; j++)
-                    U_temp[j][i] = solution[i-1][j-1];
+                    U_temp[j][i] = solution[i][j];
             }
 
             // STEP 2: explicit in x, implicit in y on interval [t_n+(1/2), t_n+1]
@@ -549,16 +592,16 @@ int main(int argc, char *argv[])
             // Solve tridiagonal matrix (Linear system) for y-axis
             # pragma omp parallel for num_threads(num_threads) default(none) \
             private(i, j) \
-            shared(U, N_x, N_y, alpha, U_temp, solution)
+            shared(U, N_x, N_y, alpha, U_temp)
             for (i = 1; i < N_x-1; i++)
             {
                 // Solve tridiagonal matrix
-                thomas_algorithm_2(U_temp[i], solution[i-1], N_y-2, alpha);
-
-                // Copy solution
-                for (j = 1; j < N_y-1; j++)
-                    U[i][j] = solution[i-1][j-1];
+                thomas_algorithm_2(U_temp[i], U[i], N_y-2, alpha);
             }
+
+            // Measure PDE time
+            // finish = omp_get_wtime();
+            // elapsed_pde += finish - start;
 
             // Boundary Conditions x-axis
             # pragma omp parallel for num_threads(num_threads) default(none) \
@@ -581,13 +624,16 @@ int main(int argc, char *argv[])
             }
 
             // Update U_old
-            # pragma omp parallel for num_threads(num_threads) default(none) \
+            # pragma omp parallel for collapse(2) num_threads(num_threads) default(none) \
             private(i, j) \
             shared(U, U_old, N_x, N_y)
             for (i = 0; i < N_x; i++)
+            {
                 for (j = 0; j < N_y; j++)
+                {
                     U_old[i][j] = U[i][j];
-           
+                }
+            }
 
             // Error analysis
             // Write to file
@@ -603,7 +649,7 @@ int main(int argc, char *argv[])
             } */
             
             // Write potential to file
-            /* if (n % 10 == 0)
+            if (n % 100 == 0)
             {
                 for (int i = 0; i < N_x; i++)
                 {
@@ -613,194 +659,13 @@ int main(int argc, char *argv[])
                     }
                 }
                 count++;
-            } */
-
-        }
-    }
-
-    else if (method == 'b' || method == 'b')
-    {
-        // SSI-ADI method (2nd order)
-        for (n = 0; n < M - 1; n++)
-        {
-            int i, j;
-
-            // STEP 1: implicit in y, explicit in x on interval [t_n, t_n+(1/2)]
-
-            # pragma omp parallel for collapse(2) num_threads(num_threads) default(none) \
-            private(i, j, I_app, tau_vminus, tau_wminus, tau_so, tau_s, tau_o, J_fi, J_so, J_si, J, v_inf, w_inf, du_dt, \
-            dv_dt, ds_dt, dw_dt, n_ode) \
-            shared(n, U_old, U_temp, V, W, S, N_x, N_y, M_ode, \
-            u_o, u_u, theta_v, theta_w, theta_vminus, theta_o, tau_v1minus, tau_v2minus, \
-            tau_vplus, tau_w1minus, tau_w2minus, k_wminus, u_wminus, tau_wplus, tau_fi, tau_o1, tau_o2, tau_so1, tau_so2, k_so, \
-            u_so, tau_s1, tau_s2, k_s, u_s, tau_si, tau_winf, w_infstar, \
-            delta_t_ode, num_threads, t_app, delta_x, delta_y, D, alpha_2, delta_t)
-            for (i = 1; i < N_x - 1; i++)
-            {
-                for (j = 1; j < N_y - 1; j++)
-                {
-                    // ODEs
-                    
-                    // Stimulus
-                    /* if ((n >= 0 && n <= t_app && j > 0 && j < 10) || (n >= 6500 && n <= 6540 && j > 0 && j < 250 && i > 250 && i < 500))
-                        I_app = 1;
-                    else
-                        I_app = 0; */
-                    
-                    // Spiral stimulus
-                    I_app = 0;
-
-                    // Calculate J (I_ion) functions
-                    tau_vminus = (1 - H(U_old[i][j], theta_vminus)) * tau_v1minus + H(U_old[i][j], theta_vminus) * tau_v2minus;
-                    tau_wminus = tau_w1minus + (tau_w2minus - tau_w1minus) * (1 + tanh(k_wminus * (U_old[i][j] - u_wminus))) / 2;
-                    tau_s = (1 - H(U_old[i][j], theta_w)) * tau_s1 + H(U_old[i][j], theta_w) * tau_s2;
-
-                    v_inf = v_inf_function(U_old[i][j], theta_vminus);
-                    w_inf = (1 - H(U_old[i][j], theta_o)) * (1 - U_old[i][j] / tau_winf) + H(U_old[i][j], theta_o) * w_infstar;
-
-                    du_dt = -reaction_J(U_old[i][j], V[i][j], W[i][j], S[i][j]) + I_app;
-                    dv_dt = (1 - H(U_old[i][j], theta_v)) * (v_inf - V[i][j]) / tau_vminus - H(U_old[i][j], theta_v) * V[i][j] / tau_vplus;
-                    dw_dt = (1 - H(U_old[i][j], theta_w)) * (w_inf - W[i][j]) / tau_wminus - H(U_old[i][j], theta_w) * W[i][j] / tau_wplus;
-                    ds_dt = ((1 + tanh(k_s * (U_old[i][j] - u_s))) / 2 - S[i][j]) / tau_s;
-
-                    // Potential (u) - reaction term
-                    U_temp[i][j] = U_old[i][j] + delta_t * du_dt / 2;
-
-                    // Potential (u) - diffusion term
-                    U_temp[i][j] = U_temp[i][j] + (delta_t * D / 2) * (((U_old[i - 1][j] - 2 * U_old[i][j] + U_old[i + 1][j]) / (delta_x * delta_x)) + ((U_old[i][j - 1] - 2 * U_old[i][j] + U_old[i][j + 1]) / (delta_y * delta_y)));
-
-                    // Update gating variables (v, w, s)
-                    V[i][j] = V[i][j] + delta_t * dv_dt / 2;
-                    W[i][j] = W[i][j] + delta_t * dw_dt / 2;
-                    S[i][j] = S[i][j] + delta_t * ds_dt / 2;
-                    
-                }
             }
 
-            // Diffusion (y-axis)
-            # pragma omp parallel for num_threads(num_threads) default(none) \
-            private(i, j) \
-            shared(r, U_old, U_temp, N_x, N_y, alpha_2, V, W, S)
-            for (i = 1; i < N_x-1; i++)
-                for (j = 1; j < N_y-1; j++)
-                    r[i-1][j-1] = U_old[j][i] + alpha_2*(U_old[i - 1][j] - 2 * U_old[i][j] + U_old[i + 1][j]) + reaction_J(U_temp[j][i], V[j][i], W[j][i], S[j][i]) / 2;
-
-            // Solve tridiagonal matrix (Linear system) for x-axis
-            # pragma omp parallel for num_threads(num_threads) default(none) \
-            private(i, j) \
-            shared(N_x, N_y, U_old, alpha_2, r, solution)
-            for (i = 1; i < N_x-1; i++)
+            if (U[0][N_y-1] > 1.3 && !tag)
             {
-                // Solve tridiagonal matrix
-                thomas_algorithm_2(r[i-1], solution[i-1], N_y-2, alpha_2);
-                
-                // Copy solution
-                for (j = 1; j < N_y-1; j++)
-                    U_old[j][i] = solution[i-1][j-1];
+                printf("Time: %lf\n", n*delta_t);
+                tag = true;
             }
-
-            // Boundary Conditions x-axis
-            # pragma omp parallel for num_threads(num_threads) default(none) \
-            private(j) \
-            shared(U_old, N_x, N_y)
-            for (j = 0; j < N_y; j++)
-            {
-                U_old[0][j] = U_old[1][j];
-                U_old[N_x - 1][j] = U_old[N_x - 2][j];
-            }
-
-            // Boundary Conditions y-axis
-            # pragma omp parallel for num_threads(num_threads) default(none) \
-            private(i) \
-            shared(U_old, N_x, N_y)
-            for (i = 0; i < N_x; i++)
-            {
-                U_old[i][0] = U_old[i][1];
-                U_old[i][N_y - 1] = U_old[i][N_y - 2];
-            }
-
-            // STEP 2: implicit in x on interval [t_n+(1/2), t_n+1]
-
-            # pragma omp parallel for collapse(2) num_threads(num_threads) default(none) \
-            private(i, j) \
-            shared(U_old, U_temp, N_x, N_y, r, alpha_2, V, W, S)
-            for (i = 1; i < N_x - 1; i++)
-            {
-                for (j = 1; j < N_y - 1; j++)
-                {
-                    // Potential (u)
-                    r[i-1][j-1] = U_old[i][j] + alpha_2*(U_old[i][j - 1] - 2 * U_old[i][j] + U_old[i][j + 1]) + reaction_J(U_temp[i][j], V[i][j], W[i][j], S[i][j]) / 2;
-                }
-            }
-
-            // Solve tridiagonal matrix (Linear system)
-            # pragma omp parallel for num_threads(num_threads) default(none) \
-            private(i, j) \
-            shared(U, N_x, N_y, alpha, r, solution)
-            for (i = 1; i < N_x-1; i++)
-            {
-                // Solve tridiagonal matrix
-                thomas_algorithm_2(r[i-1], solution[i-1], N_y-2, alpha);
-
-                // Copy solution
-                for (j = 1; j < N_y-1; j++)
-                    U[i][j] = solution[i-1][j-1];
-            }
-
-            // Boundary Conditions x-axis
-            # pragma omp parallel for num_threads(num_threads) default(none) \
-            private(j) \
-            shared(U, N_x, N_y)
-            for (j = 0; j < N_y; j++)
-            {
-                U[0][j] = U[1][j];
-                U[N_x - 1][j] = U[N_x - 2][j];
-            }
-
-            // Boundary Conditions y-axis
-            # pragma omp parallel for num_threads(num_threads) default(none) \
-            private(i) \
-            shared(U, N_x, N_y)
-            for (i = 0; i < N_x; i++)
-            {
-                U[i][0] = U[i][1];
-                U[i][N_y - 1] = U[i][N_y - 2];
-            }
-
-            // Update U_old
-            # pragma omp parallel for num_threads(num_threads) default(none) \
-            private(i, j) \
-            shared(U, U_old, N_x, N_y)
-            for (i = 0; i < N_x; i++)
-                for (j = 0; j < N_y; j++)
-                    U_old[i][j] = U[i][j];
-           
-
-            // Error analysis
-            // Write to file
-            /* if (n*delta_t == 42)
-            {
-                for (int i = 0; i < N_x; i++)
-                {
-                    for (int j = 0; j < N_y; j++)
-                    {
-                        fprintf(fp, "%lf\n", U[i][j]);
-                    }
-                }
-            } */
-            
-            // Write potential to file
-            /* if (n % 100 == 0)
-            {
-                for (int i = 0; i < N_x; i++)
-                {
-                    for (int j = 0; j < N_y; j++)
-                    {
-                        fprintf(fp_all, "%lf\n", U[i][j]);
-                    }
-                }
-                count++;
-            } */
         }
     }
 
@@ -808,11 +673,10 @@ int main(int argc, char *argv[])
     finish = omp_get_wtime();
     elapsed = finish - start;
 
-    fprintf(fp, "%e", elapsed);
-    fprintf(fp, " - %c %.2f - %d threads\n\n", method, delta_t, num_threads);
-
+    // fprintf(fp, "%c %.2f - %d threads - time: %.4f\n\n", method, delta_t, num_threads, elapsed);
+    // fprintf(fp, "ODE: %.4f and PDE: %.4f\n\n", elapsed_ode, elapsed_pde);
+    
     printf("\nElapsed time = %e seconds\n", elapsed);
-    //printf("File complete ready with time dimension c = %d\n", count);
 
     // Write last u to file
     /* for (int i = 0; i < N_x; i++)
@@ -823,8 +687,20 @@ int main(int argc, char *argv[])
         }
     } */
 
+    for (int i = 0; i < N_x; i++)
+    {
+        for (int j = 0; j < N_y; j++)
+        {
+            fprintf(tnnp_u, "%lf\n", U[i][j]);
+            fprintf(tnnp_v, "%lf\n", V[i][j]);
+            fprintf(tnnp_w, "%lf\n", W[i][j]);
+            fprintf(tnnp_s, "%lf\n", S[i][j]);
+        }
+    }
+
     // Close files
-    fclose(fp);
+    // fclose(fp);
+    fclose(fp_all);
     // fclose(fp_last);
 
     free(U);

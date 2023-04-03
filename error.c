@@ -65,6 +65,63 @@ int main()
     fclose(fp_adi);
     fclose(fp_1);
 
+    // Compare EXP with dt = 0.01 and EXP dt = 0.05
+    fp_1 = fopen("spiral-exp-0.01.txt", "r");
+    FILE *fp_exp_05;
+    fp_exp_05 = fopen("spiral-exp-0.05.txt", "r");
+
+    fprintf(fp, "Error (EXP with dt = 0.01 and EXP dt = 0.05):\n");
+
+    sum = 0;
+    sum_abs = 0;
+
+    for(int i = 0; i < 500*500; i ++)
+    {
+        char line_1[10];
+        char line_exp_05[10];
+        fgets(line_1, 10, fp_1);
+        fgets(line_exp_05, 10, fp_exp_05);
+        double num_1 = strtod(line_1, &ptr);
+        double num_exp_05 = strtod(line_exp_05, &ptr);
+
+        double p = pow(num_exp_05 - num_1, 2); 
+        sum += p;
+        sum_abs += fabs(num_exp_05 - num_1);
+    }
+
+    print_errors(fp, sum, sum_abs, norm_01);
+    
+    fclose(fp_exp_05);
+    fclose(fp_1);
+
+    // Compare EXP with dt = 0.01 and EXP dt = 0.1
+    fp_1 = fopen("spiral-exp-0.01.txt", "r");
+    FILE *fp_exp_1;
+    fp_exp_1 = fopen("spiral-exp-0.1.txt", "r");
+
+    fprintf(fp, "Error (EXP with dt = 0.01 and EXP dt = 0.1):\n");
+
+    sum = 0;
+    sum_abs = 0;
+
+    for(int i = 0; i < 500*500; i ++)
+    {
+        char line_1[10];
+        char line_exp_1[10];
+        fgets(line_1, 10, fp_1);
+        fgets(line_exp_1, 10, fp_exp_1);
+        double num_1 = strtod(line_1, &ptr);
+        double num_exp_1 = strtod(line_exp_1, &ptr);
+
+        double p = pow(num_exp_1 - num_1, 2); 
+        sum += p;
+        sum_abs += fabs(num_exp_1 - num_1);
+    }
+
+    print_errors(fp, sum, sum_abs, norm_01);
+    
+    fclose(fp_exp_1);
+    fclose(fp_1);
 
     // Compare EXP with dt = 0.01 and ADI dt = 0.02
     fp_1 = fopen("spiral-exp-0.01.txt", "r");
