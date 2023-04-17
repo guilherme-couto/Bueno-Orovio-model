@@ -27,13 +27,13 @@ Adjusted to TNNP
 -----------------------------------------------------*/
 double u_o = 0.0;
 double u_u = 1.58;
-double theta_u = 0.3;
+double theta_v = 0.3;
 double theta_w = 0.015;
-double theta_uminus = 0.015;
+double theta_vminus = 0.015;
 double theta_o = 0.006;
-double tau_u1minus = 60.0;
-double tau_u2minus = 1150.0;
-double tau_uplus = 1.4506;
+double tau_v1minus = 60.0;
+double tau_v2minus = 1150.0;
+double tau_vplus = 1.4506;
 double tau_w1minus = 70.0;
 double tau_w2minus = 20.0;
 double k_wminus = 65.0;
@@ -54,9 +54,7 @@ double tau_si = 2.8723;
 double tau_winf = 0.07;
 double w_infstar = 0.94;
 double D = 1.171e-3;           // Diffusion coefficient -> cm²/ms
-// double D = 0.0001;           // Diffusion coefficient -> cm²/ms
 double chi = 1400.0;           // Surface area to volume ratio -> cm^-1
-double Cm = 0.185;          // Cell capacitance per unit surface area -> uF/ (???)^2
 
 /*-----------------------------------------------------
 Auxiliary functions
@@ -151,17 +149,17 @@ double diffusion_j_2nd(int i, int j, int N, double **v)
 // Convert u to voltage in mV
 double rescale_u(double u)
 {
-    return 85.7*u - 84;
+    return 85.7*u - 84.0;
 }
 
 
 /*-----------------------------------------------------
 Functions of voltage variable u
 -----------------------------------------------------*/
-double tau_uminus(double u)
+double tau_vminus(double u)
 {
-    double h = H(u - theta_uminus);
-    return (1.0 - h) * tau_u1minus + (h * tau_u2minus);
+    double h = H(u - theta_vminus);
+    return (1.0 - h) * tau_v1minus + (h * tau_v2minus);
 }
 
 double tau_wminus(double u)
@@ -171,7 +169,7 @@ double tau_wminus(double u)
 
 double tau_so(double u)
 {
-    return tau_so1 + (((tau_so2 - tau_so1) * (1.0 + tanh(k_so*(u - u_o)))) * 0.5);
+    return tau_so1 + (((tau_so2 - tau_so1) * (1.0 + tanh(k_so*(u - u_so)))) * 0.5);
 }
 
 double tau_s(double u)
@@ -189,12 +187,14 @@ double tau_o(double u)
 // Infinity values
 double v_inf_function(double u)
 {
-    if (u < theta_uminus)
+    if (u < theta_vminus)
     {
         return 1.0;
     }
     else
+    {
         return 0.0;
+    }
 }
 
 double w_inf_function(double u)
@@ -209,7 +209,7 @@ Currents functions
 -----------------------------------------------------*/
 double J_fi(double u, double v)
 {
-    return -v * H(u-theta_u) * (u-theta_u) * (u_u-u) / tau_fi;
+    return -v * H(u-theta_v) * (u-theta_v) * (u_u-u) / tau_fi;
 }
 
 double J_so(double u)
@@ -234,8 +234,8 @@ double reaction_u(double u, double v, double w, double s)
 
 double dvdt(double u, double v)
 {
-    double h = H(u - theta_u);
-    return (1.0 - h) * (v_inf_function(u) - v) / tau_uminus(u) - (h * v / tau_uplus);
+    double h = H(u - theta_v);
+    return (1.0 - h) * (v_inf_function(u) - v) / tau_vminus(u) - (h * v / tau_vplus);
 }
 
 double dwdt(double u, double w)
@@ -249,26 +249,25 @@ double dsdt(double u, double s)
     return (((1.0 + tanh(k_s*(u - u_s))) * 0.5) - s) / tau_s(u);
 }
 
-
 /*-----------------------------------------------------
 Simulation parameters
 -----------------------------------------------------*/
 int L = 2.0;            // Length of each side -> cm
-double dx = 0.02;       // Spatial step -> cm
-double dy = 0.02;       // Spatial step -> cm
-double T = 200.0;       // Simulation time -> ms
+double dx = 0.01;       // Spatial step -> cm
+double dy = 0.01;       // Spatial step -> cm
+double T = 600.0;       // Simulation time -> ms
 
 
 /*-----------------------------------------------------
 Stimulation parameters
 -----------------------------------------------------*/
-double stim_strength = 0.325;          // Stimulation strength -> uA/cm^2 (???)       ~52 mV   
+double stim_strength = 38;          // Stimulation strength -> uA/cm^2 (???)       ~52 mV   
 
 double t_s1_begin = 0.0;            // Stimulation start time -> ms
-double stim_duration = 4.0;         // Stimulation duration -> ms
-double s1_x_limit = 0.2;            // Stimulation x limit -> cm
+double stim_duration = 2.0;         // Stimulation duration -> ms
+double s1_x_limit = 0.04;            // Stimulation x limit -> cm
 
-double t_s2_begin = 120.0;          // Stimulation start time -> ms
+double t_s2_begin = 325.0;          // Stimulation start time -> ms
 double stim2_duration = 2.0;        // Stimulation duration -> ms
 double s2_x_max = 1.0;              // Stimulation x max -> cm
 double s2_y_max = 1.0;              // Stimulation y limit -> cm
@@ -371,7 +370,7 @@ int main(int argc, char *argv[])
 
     // Diffusion coefficient and phi for ADI
     // double D = ga / (chi * Cm);             // Diffusion coefficient - isotropic
-    double phi = D * dt / (dx * dx);        // For Thomas algorithm - isotropic
+    double phi = D * dt / (chi * dx * dx);        // For Thomas algorithm - isotropic
 
     // Initial conditions
     int i, j;                               // Spatial indexes i for y-axis and j for x-axis
@@ -380,13 +379,13 @@ int main(int argc, char *argv[])
         for (j = 0; j < N; j++)
         {
             u[i][j] = 0.0;
-            v[i][j] = 0.0;
-            w[i][j] = 0.0;
+            v[i][j] = 1.0;
+            w[i][j] = 1.0;
             s[i][j] = 0.0;
 
             u_aux[i][j] = 0.0;
-            v_aux[i][j] = 0.0;
-            w_aux[i][j] = 0.0;
+            v_aux[i][j] = 1.0;
+            w_aux[i][j] = 1.0;
             s_aux[i][j] = 0.0;
 
             r_u[i][j] = 0.0;
