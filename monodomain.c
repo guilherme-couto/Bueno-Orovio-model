@@ -23,37 +23,37 @@ https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0052234
 
 /*-----------------------------------------------------
 Model parameters
-Adjusted to TNNP
+Adjusted to EPI
 -----------------------------------------------------*/
 double u_o = 0.0;
-double u_u = 1.58;
+double u_u = 1.55;
 double theta_v = 0.3;
-double theta_w = 0.015;
-double theta_vminus = 0.015;
+double theta_w = 0.35;
+double theta_vminus = 0.006;
 double theta_o = 0.006;
 double tau_v1minus = 60.0;
 double tau_v2minus = 1150.0;
 double tau_vplus = 1.4506;
-double tau_w1minus = 70.0;
-double tau_w2minus = 20.0;
+double tau_w1minus = 60.0;
+double tau_w2minus = 15.0;
 double k_wminus = 65.0;
 double u_wminus = 0.03;
-double tau_wplus = 280.0;
+double tau_wplus = 200.0;
 double tau_fi = 0.11;
-double tau_o1 = 6.0;
+double tau_o1 = 400.0;
 double tau_o2 = 6.0;
-double tau_so1 = 43.0;
-double tau_so2 = 0.2;
-double k_so = 2.0;
+double tau_so1 = 30.0181;
+double tau_so2 = 0.9957;
+double k_so = 2.0458;
 double u_so = 0.65;
 double tau_s1 = 2.7342;
-double tau_s2 = 3.0;
+double tau_s2 = 16.0;
 double k_s = 2.0994;
 double u_s = 0.9087;
-double tau_si = 2.8723;
+double tau_si = 1.8875;
 double tau_winf = 0.07;
 double w_infstar = 0.94;
-double D = 1.171e-3;           // Diffusion coefficient -> cm²/ms
+double D = 1.171;           // Diffusion coefficient -> cm²/s
 double chi = 1400.0;           // Surface area to volume ratio -> cm^-1
 
 /*-----------------------------------------------------
@@ -253,9 +253,9 @@ double dsdt(double u, double s)
 Simulation parameters
 -----------------------------------------------------*/
 int L = 2.0;            // Length of each side -> cm
-double dx = 0.01;       // Spatial step -> cm
-double dy = 0.01;       // Spatial step -> cm
-double T = 600.0;       // Simulation time -> ms
+double dx = 0.02;       // Spatial step -> cm
+double dy = 0.02;       // Spatial step -> cm
+double T = 400.0;       // Simulation time -> ms
 
 
 /*-----------------------------------------------------
@@ -267,7 +267,7 @@ double t_s1_begin = 0.0;            // Stimulation start time -> ms
 double stim_duration = 2.0;         // Stimulation duration -> ms
 double s1_x_limit = 0.04;            // Stimulation x limit -> cm
 
-double t_s2_begin = 325.0;          // Stimulation start time -> ms
+double t_s2_begin = 310.0;          // Stimulation start time -> ms
 double stim2_duration = 2.0;        // Stimulation duration -> ms
 double s2_x_max = 1.0;              // Stimulation x max -> cm
 double s2_y_max = 1.0;              // Stimulation y limit -> cm
@@ -368,8 +368,7 @@ int main(int argc, char *argv[])
     int y_max = N;
     int y_min = N - s2_y_max / dy;
 
-    // Diffusion coefficient and phi for ADI
-    // double D = ga / (chi * Cm);             // Diffusion coefficient - isotropic
+    // Phi
     double phi = D * dt / (chi * dx * dx);        // For Thomas algorithm - isotropic
 
     // Initial conditions
@@ -611,7 +610,7 @@ int main(int argc, char *argv[])
                     }
 
                     // Check S1 velocity
-                    if (rescale_u(u[0][N-1]) > 20 && tag)
+                    if (rescale_u(u[0][N-1]) > 40.0 && tag)
                     {
                         velocity = ((10*(L - s1_x_limit)) / (time[step]));
                         printf("S1 velocity: %lf\n", velocity);
@@ -759,7 +758,7 @@ int main(int argc, char *argv[])
                     }
 
                     // Check S1 velocity
-                    if (rescale_u(u[0][N-1]) > 20 && tag)
+                    if (rescale_u(u[0][N-1]) > 40.0 && tag)
                     {
                         velocity = ((10*(L - s1_x_limit)) / (time[step]));
                         printf("S1 velocity: %lf\n", velocity);
