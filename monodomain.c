@@ -1,253 +1,28 @@
 /*-----------------------------------------------------
-Monodomain with Minimal Ventricular model (Minimal model)
+Monodomain with Minimal Ventricular model
 Author: Guilherme Couto
 FISIOCOMP - UFJF
 ------------------------------------------------------*/
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
-#include <stdbool.h>
-#include <omp.h>
 
 /*-----------------------------------------------------
 Model definition
 https://www.sciencedirect.com/science/article/pii/S0022519308001690?via%3Dihub
 -----------------------------------------------------*/
 
-/*---------
+/*-----------------------------------------------------
 Possible adaptations
 https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0052234
--------*/
+-----------------------------------------------------*/
+
+#include "parameters.h"
+#include "functions.h"
 
 /*-----------------------------------------------------
 Model parameters
-Adjusted to EPI
 -----------------------------------------------------*/
-double u_o = 0.0;
-double u_u = 1.55;
-double theta_v = 0.3;
-double theta_w = 0.35;
-double theta_vminus = 0.006;
-double theta_o = 0.006;
-double tau_v1minus = 60.0;
-double tau_v2minus = 1150.0;
-double tau_vplus = 1.4506;
-double tau_w1minus = 60.0;
-double tau_w2minus = 15.0;
-double k_wminus = 65.0;
-double u_wminus = 0.03;
-double tau_wplus = 200.0;
-double tau_fi = 0.11;
-double tau_o1 = 400.0;
-double tau_o2 = 6.0;
-double tau_so1 = 30.0181;
-double tau_so2 = 0.9957;
-double k_so = 2.0458;
-double u_so = 0.65;
-double tau_s1 = 2.7342;
-double tau_s2 = 16.0;
-double k_s = 2.0994;
-double u_s = 0.9087;
-double tau_si = 1.8875;
-double tau_winf = 0.07;
-double w_infstar = 0.94;
 double D = 1.171;           // Diffusion coefficient -> cm²/s
 double chi = 1400.0;           // Surface area to volume ratio -> cm^-1
 
-/*-----------------------------------------------------
-Auxiliary functions
------------------------------------------------------*/
-// Standard Heaviside function
-double H(double x)
-{
-    if (x > 0.0)
-    {
-        return 1.0;
-    }
-    else
-    {
-        return 0.0;
-    }
-}
-
-// Adapted for 2nd order approximation
-void thomas_algorithm_2nd(double *d, double *solution, unsigned long N, double alpha, double *c_, double *d_)
-{   
-    // Coefficients
-    double a = -alpha;    // subdiagonal
-    double b = 1 + 2 * alpha; // diagonal (1st and last row)
-    double c = - 2 * alpha;    // superdiagonal
-    
-    // 1st: update auxiliary arrays
-    c_[0] = c / b;
-    d_[0] = d[0] / b;
-
-    c = -alpha;
-    
-    for (int i = 1; i <= N - 2; i++)
-    {
-        c_[i] = c / (b - a * c_[i - 1]);
-        d_[i] = (d[i] - a * d_[i - 1]) / (b - a * c_[i - 1]);
-    }
-    
-    a = - 2 * alpha;
-    d_[N - 1] = (d[N - 1] - a * d_[N - 2]) / (b - a * c_[N - 2]);
-
-    a = -alpha;
-
-    // 2nd: update solution
-    solution[N - 1] = d_[N - 1];
-    
-    for (int i = N - 2; i >= 0; i--)
-    {
-        solution[i] = d_[i] - c_[i] * solution[i + 1];
-    }
-}
-
-// Adapted for 2nd order approximation
-double diffusion_i_2nd(int i, int j, int N, double **v)
-{
-    double result = 0.0;
-    if (i == 0)
-    {
-        result = - 2.0*v[i][j] + 2.0*v[i + 1][j]; 
-    }
-    else if (i == N - 1)
-    {
-        result = 2.0*v[i - 1][j] - 2.0*v[i][j]; 
-    }
-    else
-    {
-        result = v[i - 1][j] - 2.0*v[i][j] + v[i + 1][j];
-    }
-
-    return result;
-}
-
-// Adapted for 2nd order approximation
-double diffusion_j_2nd(int i, int j, int N, double **v)
-{
-    double result = 0.0;
-    if (j == 0)
-    {
-        result = - 2.0*v[i][j] + 2.0*v[i][j + 1]; 
-    }
-    else if (j == N - 1)
-    {
-        result = 2.0*v[i][j - 1] - 2.0*v[i][j]; 
-    }
-    else
-    {
-        result = v[i][j - 1] - 2.0*v[i][j] + v[i][j + 1];
-    }
-
-    return result;
-}
-
-// Convert u to voltage in mV
-double rescale_u(double u)
-{
-    return 85.7*u - 84.0;
-}
-
-
-/*-----------------------------------------------------
-Functions of voltage variable u
------------------------------------------------------*/
-double tau_vminus(double u)
-{
-    double h = H(u - theta_vminus);
-    return (1.0 - h) * tau_v1minus + (h * tau_v2minus);
-}
-
-double tau_wminus(double u)
-{
-    return tau_w1minus + (((tau_w2minus - tau_w1minus) * (1.0 + tanh(k_wminus*(u - u_wminus)))) * 0.5);
-}
-
-double tau_so(double u)
-{
-    return tau_so1 + (((tau_so2 - tau_so1) * (1.0 + tanh(k_so*(u - u_so)))) * 0.5);
-}
-
-double tau_s(double u)
-{
-    double h = H(u - theta_w);
-    return (1.0 - h) * tau_s1 + (h * tau_s2);
-}
-
-double tau_o(double u)
-{
-    double h = H(u - theta_o);
-    return (1.0 - h) * tau_o1 + (h * tau_o2);
-}
-
-// Infinity values
-double v_inf_function(double u)
-{
-    if (u < theta_vminus)
-    {
-        return 1.0;
-    }
-    else
-    {
-        return 0.0;
-    }
-}
-
-double w_inf_function(double u)
-{
-    double h = H(u - theta_o);
-    return (1.0 - h) * (1.0 - (u/tau_winf)) + (h * w_infstar);
-}
-
-
-/*-----------------------------------------------------
-Currents functions
------------------------------------------------------*/
-double J_fi(double u, double v)
-{
-    return -v * H(u-theta_v) * (u-theta_v) * (u_u-u) / tau_fi;
-}
-
-double J_so(double u)
-{
-    double h = H(u-theta_w);
-    return ((u-u_o) * (1.0 - h) / tau_o(u)) + (h / tau_so(u));
-}
-
-double J_si(double u, double w, double s)
-{
-    return - H(u-theta_w) * w * s / tau_si;
-}
-
-
-/*-----------------------------------------------------
-Differential equations for each variable
------------------------------------------------------*/
-double reaction_u(double u, double v, double w, double s)
-{
-    return (J_fi(u, v) + J_so(u) + J_si(u, w, s));
-}
-
-double dvdt(double u, double v)
-{
-    double h = H(u - theta_v);
-    return (1.0 - h) * (v_inf_function(u) - v) / tau_vminus(u) - (h * v / tau_vplus);
-}
-
-double dwdt(double u, double w)
-{
-    double h = H(u - theta_w);
-    return (1.0 - h) * (w_inf_function(u) - w) / tau_wminus(u) - (h * w / tau_wplus);
-}
-
-double dsdt(double u, double s)
-{
-    return (((1.0 + tanh(k_s*(u - u_s))) * 0.5) - s) / tau_s(u);
-}
 
 /*-----------------------------------------------------
 Simulation parameters
@@ -261,7 +36,7 @@ double T = 400.0;       // Simulation time -> ms
 /*-----------------------------------------------------
 Stimulation parameters
 -----------------------------------------------------*/
-double stim_strength = 38;          // Stimulation strength -> uA/cm^2 (???)       ~52 mV   
+double stim_strength = 38;          // Stimulation strength -> uA/cm^2 
 
 double t_s1_begin = 0.0;            // Stimulation start time -> ms
 double stim_duration = 2.0;         // Stimulation duration -> ms
