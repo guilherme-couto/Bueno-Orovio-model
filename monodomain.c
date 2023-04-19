@@ -173,6 +173,8 @@ int main(int argc, char *argv[])
     char s_dt[10];
     sprintf(s_dt, "%.03f", dt);
 
+    system("mkdir -p simulation-files");
+
     // Open the file to write for complete gif
     char fname_complete[100] = "./simulation-files/mm-";
     strcat(fname_complete, method);

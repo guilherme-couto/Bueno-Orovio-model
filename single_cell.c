@@ -37,8 +37,6 @@ Main function
 -----------------------------------------------------*/
 int main(int argc, char *argv[])
 {
-    printf("%f\n", u_u);
-    return 0;
     if (argc != 3)
     {
         printf("Usage: %s <num_threads> <delta_t (ms)>\n", argv[0]);
@@ -86,6 +84,8 @@ int main(int argc, char *argv[])
     char s_dt[10];
     sprintf(s_dt, "%.03f", dt);
 
+    system("mkdir -p simulation-files");
+
     // Open the file to write for complete gif
     char fname_complete[100] = "./simulation-files/mm-";
     strcat(fname_complete, "cell");
@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
     strcat(fname_complete, ".txt");
     FILE *fp_all = NULL;
     fp_all = fopen(fname_complete, "w");
-
+    
     // Open the file to write for times
     char fname_times[100] = "./simulation-files/sim-times-";
     strcat(fname_times, "cell");

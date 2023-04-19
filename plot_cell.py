@@ -1,9 +1,5 @@
-import numpy as np
 import matplotlib.pyplot as plt
 import sys
-import os
-import imageio.v2
-import math
 
 if len(sys.argv) != 2:
     print('Usage: python3 plot_cell.py <dt>')
@@ -30,7 +26,7 @@ plt.title(f'Cell MM')
 plt.xlabel('t (ms)')
 plt.ylabel('V (mV)')
 
-plt.savefig('Cell.png')
+plt.savefig('cell.png')
 plt.close()
 
 

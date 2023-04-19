@@ -6,7 +6,7 @@ import imageio.v2
 import math
 
 if len(sys.argv) != 3:
-    print('Usage: python3 plot.py <method> <dt>')
+    print('Usage: python3 plot_mono.py <method> <dt>')
     sys.exit(1)
 
 method = sys.argv[1]
@@ -21,9 +21,10 @@ with open(timesfile, 'r') as f:
         t.append(float(line))
 
 totalframes = len(t)
+spatialpoints = len(t)
 
 filename = f'./simulation-files/mm-{method}-{dt}.txt'
-U = np.zeros((totalframes, 100, 100))
+U = np.zeros((totalframes, spatialpoints, spatialpoints))
 with open(filename, 'r') as f:
     for n in range(totalframes):
         for i in range(len(U[0])):
@@ -49,6 +50,9 @@ for n in range(len(U)):
         plt.close()
 
 # Build gif
+if not os.path.exists('./gif'):
+    os.mkdir('./gif')
+    
 with imageio.v2.get_writer(f'./gif/gif-{method}-{dt}.gif', mode='I') as writer:
     for plot in plots:
         image = imageio.v2.imread(plot)

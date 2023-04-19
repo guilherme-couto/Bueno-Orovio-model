@@ -29,7 +29,7 @@ Simulation parameters
 -----------------------------------------------------*/
 int L = 2.0;            // Length of each side -> cm
 double dx = 0.02;       // Spatial step -> cm
-double T = 600.0;       // Simulation time -> ms
+double T = 500.0;       // Simulation time -> ms
 
 
 /*-----------------------------------------------------
@@ -68,15 +68,12 @@ int main(int argc, char *argv[])
 
     // Variables
     double *u, *v, *w, *s;
-    double *u_aux;
 
     // Allocate memory
     u = (double *)malloc(N * sizeof(double));
     v = (double *)malloc(N * sizeof(double));
     w = (double *)malloc(N * sizeof(double));
     s = (double *)malloc(N * sizeof(double));
-
-    u_aux = (double *)malloc(N * sizeof(double *));
 
     double du_dt, dv_dt, dw_dt, ds_dt;
     double ustep, vstep, wstep, sstep;
@@ -94,9 +91,8 @@ int main(int argc, char *argv[])
     double I_stim = 0.0;
     int x_lim = s1_x_limit / dx;
 
-    // Diffusion coefficient and phi for ADI
-    // double D = ga / (chi * Cm);             // Diffusion coefficient - isotropic
-    double phi = D * dt / (dx * dx);        // For Thomas algorithm - isotropic
+    // Diffusion coefficient
+    double phi = D * dt / (chi * dx * dx);        // For Thomas algorithm - isotropic
 
     // Initial conditions
     int i;                         
@@ -106,8 +102,6 @@ int main(int argc, char *argv[])
         v[i] = 1.0;
         w[i] = 1.0;
         s[i] = 0.0;
-
-        u_aux[i] = 0.0;
     }
 
     // Prepare files to save data
@@ -115,6 +109,8 @@ int main(int argc, char *argv[])
     char s_dt[10];
     sprintf(s_dt, "%.03f", dt);
 
+    system("mkdir -p simulation-files");
+    
     // Open the file to write for complete gif
     char fname_complete[100] = "./simulation-files/mm-";
     strcat(fname_complete, "cable-eq");
@@ -123,7 +119,7 @@ int main(int argc, char *argv[])
     strcat(fname_complete, ".txt");
     FILE *fp_all = NULL;
     fp_all = fopen(fname_complete, "w");
-    int save_rate = ceil(M / 100.0);
+    int save_rate = ceil(M / 150.0);
 
     // Open the file to write for times
     char fname_times[100] = "./simulation-files/sim-times-";
@@ -147,7 +143,7 @@ int main(int argc, char *argv[])
     #pragma omp parallel num_threads(num_threads) default(none) \
     private(i, I_stim, du_dt, dv_dt, dw_dt, ds_dt, ustep, vstep, wstep, sstep) \
     shared(u, v, w, s, N, M, dt, L, s1_x_limit, stim_strength, t_s1_begin, stim_duration, x_lim, \
-    time, u_aux, phi, T, tstep, step, \
+    time, phi, T, tstep, step, \
     fp_all, velocity, save_rate, fp_times, tag)
     {
         while (step < M)
@@ -208,7 +204,7 @@ int main(int argc, char *argv[])
                 }
 
                 // Check S1 velocity
-                if (rescale_u(u[N-1]) > 20 && tag)
+                if (rescale_u(u[N-1]) > 40 && tag)
                 {
                     velocity = ((10*(L - s1_x_limit)) / (time[step]));
                     printf("S1 velocity: %lf\n", velocity);
@@ -222,7 +218,6 @@ int main(int argc, char *argv[])
                 step++;
             }
             #pragma omp barrier 
-
         }
     } 
     
@@ -243,7 +238,6 @@ int main(int argc, char *argv[])
     free(v);
     free(w);
     free(s);
-    free(u_aux);
 
     return 0;
 }
