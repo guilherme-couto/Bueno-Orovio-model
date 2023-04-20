@@ -20,7 +20,7 @@ https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0052234
 /*-----------------------------------------------------
 Model parameters
 -----------------------------------------------------*/
-double D = 1.171;           // Diffusion coefficient -> cm²/s
+double D = 1.171;              // Diffusion coefficient -> cm²/s
 double chi = 1400.0;           // Surface area to volume ratio -> cm^-1
 
 
@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
     double **u, **v, **w, **s;
     double **u_aux, **v_aux, **w_aux, **s_aux;
 
-    // Auxiliary arrays
+    // Auxiliar arrays
     double **r_u, **rightside, **solution, **c_, **d_;
 
     // Allocate memory

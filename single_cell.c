@@ -37,18 +37,17 @@ Main function
 -----------------------------------------------------*/
 int main(int argc, char *argv[])
 {
-    if (argc != 3)
+    if (argc != 2)
     {
-        printf("Usage: %s <num_threads> <delta_t (ms)>\n", argv[0]);
+        printf("Usage: %s <delta_t (ms)>\n", argv[0]);
         exit(1);
     }
 
-    int num_threads = atoi(argv[1]);
-    double dt = atof(argv[2]);
+    double dt = atof(argv[1]);
 
-    if (num_threads <= 0)
+    if (dt <= 0)
     {
-        fprintf(stderr, "Number of threads must greater than 0\n");
+        fprintf(stderr, "Delta_t must greater than 0\n");
         exit(1);
     }
 
@@ -110,60 +109,45 @@ int main(int argc, char *argv[])
     start = omp_get_wtime();
 
     // Forward Euler
-    #pragma omp parallel num_threads(num_threads) default(none) \
-    private(I_stim, du_dt, dv_dt, dw_dt, ds_dt, ustep, vstep, wstep, sstep) \
-    shared(u, v, w, s, M, dt, stim_strength, t_s1_begin, stim_duration, \
-    time, T, tstep, step, \
-    fp_all, fp_times)
+    while (step < M)
     {
-        while (step < M)
+        // Get time step
+        tstep = time[step];
+
+        // Stimulus 1
+        if (tstep >= t_s1_begin && tstep <= t_s1_begin + stim_duration)
         {
-            // Get time step
-            tstep = time[step];
-
-            // Stimulus 1
-            if (tstep >= t_s1_begin && tstep <= t_s1_begin + stim_duration)
-            {
-                I_stim = stim_strength;
-            }
-            else 
-            {
-                I_stim = 0.0;
-            }
-
-            ustep = u;
-            vstep = v;
-            wstep = w;
-            sstep = s;
-
-            // Get du_dt, dv_dt, dw_dt and ds_dt
-            du_dt = - reaction_u(ustep, vstep, wstep, sstep) + I_stim;
-            dv_dt = dvdt(ustep, vstep);
-            dw_dt = dwdt(ustep, wstep);
-            ds_dt = dsdt(ustep, sstep);
-            
-            // Update u_aux, v, w and s
-            u = ustep + dt * du_dt;
-            v = vstep + dt * dv_dt;
-            w = wstep + dt * dw_dt;
-            s = sstep + dt * ds_dt;
-
-            // Save data to file
-            #pragma omp master
-            {
-                // Write to file
-                fprintf(fp_all, "%lf\n", rescale_u(u));
-                fprintf(fp_times, "%lf\n", time[step]);
-                
-            } 
-            
-            // Update step
-            #pragma omp master
-            {
-                step++;
-            }
-            #pragma omp barrier 
+            I_stim = stim_strength;
         }
+        else 
+        {
+            I_stim = 0.0;
+        }
+
+        ustep = u;
+        vstep = v;
+        wstep = w;
+        sstep = s;
+
+        // Get du_dt, dv_dt, dw_dt and ds_dt
+        du_dt = - reaction_u(ustep, vstep, wstep, sstep) + I_stim;
+        dv_dt = dvdt(ustep, vstep);
+        dw_dt = dwdt(ustep, wstep);
+        ds_dt = dsdt(ustep, sstep);
+        
+        // Update u, v, w and s
+        u = ustep + dt * du_dt;
+        v = vstep + dt * dv_dt;
+        w = wstep + dt * dw_dt;
+        s = sstep + dt * ds_dt;
+
+        // Save data to file
+        // Write to file
+        fprintf(fp_all, "%lf\n", rescale_u(u));
+        fprintf(fp_times, "%lf\n", time[step]);
+        
+        // Update step
+        step++;
     }
 
     // Check time
