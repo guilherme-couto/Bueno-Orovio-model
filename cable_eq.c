@@ -221,7 +221,6 @@ int main(int argc, char *argv[])
         }
     } 
     
-
     // Check time
     finish = omp_get_wtime();
     elapsed = finish - start;

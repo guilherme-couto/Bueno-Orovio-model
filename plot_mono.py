@@ -21,10 +21,9 @@ with open(timesfile, 'r') as f:
         t.append(float(line))
 
 totalframes = len(t)
-spatialpoints = len(t)
 
 filename = f'./simulation-files/mm-{method}-{dt}.txt'
-U = np.zeros((totalframes, spatialpoints, spatialpoints))
+U = np.zeros((totalframes, 100, 100))
 with open(filename, 'r') as f:
     for n in range(totalframes):
         for i in range(len(U[0])):

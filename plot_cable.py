@@ -19,13 +19,12 @@ with open(timesfile, 'r') as f:
         t.append(float(line))
 
 totalframes = len(t)
-spatialpoints = len(t)
 
 filename = f'./simulation-files/mm-cable-eq-{dt}.txt'
-U = np.zeros((totalframes, spatialpoints))
+U = np.zeros((totalframes, 100))
 with open(filename, 'r') as f:
     for n in range(totalframes):
-        for i in range(spatialpoints):
+        for i in range(100):
             U[n][i] = float(f.readline())
 
 
