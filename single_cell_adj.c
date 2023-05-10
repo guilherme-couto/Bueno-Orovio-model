@@ -26,9 +26,9 @@ double T = 600.0;       // Simulation time -> ms
 /*-----------------------------------------------------
 Stimulation parameters
 -----------------------------------------------------*/
-double stim_strength = 1.0;          // Stimulation strength -> uA/cm^2
+double stim_strength = 0.325;          // Stimulation strength -> uA/cm^2
 
-double t_s1_begin = 0.0;            // Stimulation start time -> ms
+double t_s1_begin = 50.0;            // Stimulation start time -> ms
 double stim_duration = 1.0;         // Stimulation duration -> ms
 
 
@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
 
     // Open the file to write for complete gif
     char fname_complete[100] = "./simulation-files/mm-";
-    strcat(fname_complete, "cell");
+    strcat(fname_complete, "cell-adj");
     strcat(fname_complete, "-");
     strcat(fname_complete, s_dt);
     strcat(fname_complete, ".txt");
@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
     
     // Open the file to write for times
     char fname_times[100] = "./simulation-files/sim-times-";
-    strcat(fname_times, "cell");
+    strcat(fname_times, "cell-adj");
     strcat(fname_times, "-");
     strcat(fname_times, s_dt);
     strcat(fname_times, ".txt");

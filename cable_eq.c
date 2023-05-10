@@ -35,7 +35,7 @@ double T = 500.0;       // Simulation time -> ms
 /*-----------------------------------------------------
 Stimulation parameters
 -----------------------------------------------------*/
-double stim_strength = 38.0;          // Stimulation strength -> uA/cm^2
+double stim_strength = 1.0;          // Stimulation strength -> uA/cm^2
 
 double t_s1_begin = 0.0;            // Stimulation start time -> ms
 double stim_duration = 2.0;         // Stimulation duration -> ms

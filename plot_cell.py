@@ -9,12 +9,12 @@ dt = sys.argv[1]
 
 # Read data from files
 t = []
-timesfile = f'./simulation-files/sim-times-cell-{dt}.txt'
+timesfile = f'./simulation-files/sim-times-cell-adj-{dt}.txt'
 with open(timesfile, 'r') as f:
     for line in f:
         t.append(float(line))
 
-filename = f'./simulation-files/mm-cell-{dt}.txt'
+filename = f'./simulation-files/mm-cell-adj-{dt}.txt'
 U = []
 with open(filename, 'r') as f:
     for line in f:
@@ -22,11 +22,11 @@ with open(filename, 'r') as f:
 
 # Make plot
 plt.plot(t, U)
-plt.title(f'Cell MM')
+plt.title(f'Cell MM Adj')
 plt.xlabel('t (ms)')
 plt.ylabel('V (mV)')
 
-plt.savefig('cell.png')
+plt.savefig('cell-adj.png')
 plt.close()
 
 
